@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>VTION — Enhanced Policy Chatbot</title>
+    <title>VTION — Enhanced Policy Chatbot (Voice)</title>
     <link rel="icon" href="data:," />
     <style>
       /* ---------- Root / theme vars ---------- */
       :root {
         --glass-bg: rgba(255, 255, 255, 0.75);
-        --accent-1: #0034b2;
+        --accent-1: #0034b2; /* blue — used for Back button per request */
         --accent-2: #00cbea;
         --accent-3: #ff1ad5;
         --danger: #ff0006;
@@ -86,6 +86,26 @@
         display: flex;
         gap: 8px;
         align-items: center;
+      }
+
+      /* Voice toggle */
+      .voice-toggle {
+        display:flex;
+        align-items:center;
+        gap:8px;
+        font-size:13px;
+      }
+      .voice-btn {
+        padding:6px 8px;
+        border-radius:8px;
+        border:0;
+        cursor:pointer;
+        font-weight:600;
+        background: rgba(255,255,255,0.12);
+        color: #fff;
+      }
+      .voice-btn.off {
+        opacity:0.6;
       }
 
       /* Search area */
@@ -202,6 +222,7 @@
         margin-top: 10px;
         display: flex;
         gap: 8px;
+        flex-wrap:wrap;
       }
       .btn-small {
         padding: 8px 10px;
@@ -218,12 +239,32 @@
         background: rgba(3, 10, 60, 0.06);
         color: #08102a;
       }
+      .btn-speak {
+        background: #0aa3ff;
+        color: #fff;
+      }
 
       /* Back / breadcrumb */
       .breadcrumb {
         font-size: 13px;
         color: #59677f;
         margin-bottom: 8px;
+      }
+
+      /* Blue back card (per request) */
+      .btn-back {
+        background: var(--accent-1);
+        color: #fff;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 0;
+        cursor: pointer;
+        display:inline-block;
+      }
+      .back-policy-sub {
+        font-size: 13px;
+        color: rgba(255,255,255,0.85);
+        margin-top:4px;
       }
 
       /* Footer small */
@@ -309,6 +350,9 @@
         </div>
 
         <div class="controls">
+          <div class="voice-toggle" title="Toggle voice results">
+            <button id="voiceBtn" class="voice-btn off" aria-pressed="false">Voice: OFF</button>
+          </div>
           <button
             id="themeBtn"
             title="Toggle theme"
@@ -329,14 +373,15 @@
         <input
           id="searchInput"
           placeholder="Search policies or questions (try: 'reimburse', 'harassment', 'IPR')"
+          aria-label="Search policies or questions"
         />
-        <button class="search-btn" id="clearBtn" title="Clear">✖</button>
+        <button class="search-btn" id="clearBtn" title="Clear" aria-label="Clear search">✖</button>
       </div>
 
       <div class="chat-body" id="chatBody">
         <div class="message-box" id="welcomeMsg">
           Hi! Pick a policy below or search to jump straight to a question.
-          Answers are copyable.
+          Answers are copyable and voice-enabled.
         </div>
 
         <div class="policy-list" id="policyList"></div>
@@ -595,6 +640,52 @@
       };
 
       /* ==========================
+         Voice / speech synthesis helper
+         ========================== */
+      const synth = window.speechSynthesis;
+      let voiceEnabled = false;
+      let defaultVoice = null;
+
+      function getPreferredVoice() {
+        const voices = synth.getVoices();
+        if (!voices || voices.length === 0) return null;
+        // Prefer an English-ish voice; fallback to first available
+        // Try to pick a modern, clear voice if present
+        const prefer = voices.find(v =>
+          /en|Google UK|Google US|Microsoft David|Samantha|Alloy|Alex/i.test(v.name)
+        );
+        return prefer || voices[0];
+      }
+
+      // Ensure voices are loaded (they load async in some browsers)
+      function ensureVoiceReady(callback) {
+        let voices = synth.getVoices();
+        if (voices.length) {
+          defaultVoice = getPreferredVoice();
+          callback();
+        } else {
+          // wait for event
+          synth.onvoiceschanged = () => {
+            defaultVoice = getPreferredVoice();
+            callback();
+          };
+        }
+      }
+
+      function speakText(text, opts = {}) {
+        if (!voiceEnabled) return;
+        if (!text) return;
+        if (!synth) return;
+        // cancel prior speak if options say replace
+        if (opts.replace) synth.cancel();
+        const ut = new SpeechSynthesisUtterance(text);
+        if (defaultVoice) ut.voice = defaultVoice;
+        if (opts.rate) ut.rate = opts.rate;
+        if (opts.pitch) ut.pitch = opts.pitch;
+        synth.speak(ut);
+      }
+
+      /* ==========================
        UI bootstrap + logo theme swap
        ========================== */
       const chatWrap = document.getElementById("chatWrap");
@@ -605,6 +696,7 @@
       const welcomeMsg = document.getElementById("welcomeMsg");
       const themeBtn = document.getElementById("themeBtn");
       const logoImg = document.getElementById("vtionLogo");
+      const voiceBtn = document.getElementById("voiceBtn");
 
       let isDark = false;
 
@@ -621,6 +713,21 @@
         themeBtn.textContent = isDark ? "☀️" : "🌙";
         // swap logo immediately
         logoImg.src = isDark ? logoDark : logoLight;
+      });
+
+      /* Voice toggle */
+      voiceBtn.addEventListener("click", () => {
+        voiceEnabled = !voiceEnabled;
+        voiceBtn.classList.toggle("off", !voiceEnabled);
+        voiceBtn.textContent = voiceEnabled ? "Voice: ON" : "Voice: OFF";
+        voiceBtn.setAttribute("aria-pressed", String(voiceEnabled));
+        if (voiceEnabled) {
+          ensureVoiceReady(() => {
+            speakText("Voice results enabled", { replace: true, rate: 1 });
+          });
+        } else {
+          synth.cancel && synth.cancel();
+        }
       });
 
       /* keyboard shortcut Ctrl/Cmd+K to focus search */
@@ -667,15 +774,19 @@
       function openPolicy(id, highlight = "") {
         const p = policies[id];
         welcomeMsg.style.display = "none";
-        policyList.innerHTML = `<div class="breadcrumb">← <strong>${p.title}</strong></div>`;
+        policyList.innerHTML = `<div class="breadcrumb">← <strong>${escapeHtml(p.title)}</strong></div>`;
         qaArea.style.display = "flex";
         qaArea.innerHTML = "";
+
+        // speak the policy title when opening (if voice enabled)
+        speakText(`Policy: ${p.title}`, { replace: true, rate: 1 });
+
         Object.keys(p.questions).forEach((qid) => {
           const qText = p.questions[qid];
           const answer = p.answers[qid] || "Answer not available.";
           const acc = document.createElement("div");
           acc.className = "accordion";
-          acc.innerHTML = `<div class="acc-head">
+          acc.innerHTML = `<div class="acc-head" tabindex="0" role="button" aria-expanded="false">
                        <div class="q">${highlightText(qText, highlight)}</div>
                        <div class="meta">Q.${qid}</div>
                      </div>
@@ -687,41 +798,37 @@
                          <button class="btn-small btn-copy" data-txt="${escapeHtml(
                            answer
                          )}">Copy Answer</button>
+                         <button class="btn-small btn-speak" data-txt="${escapeHtml(
+                           answer
+                         )}">Speak Answer</button>
                          <button class="btn-small btn-open">Open in modal</button>
                        </div>
                      </div>`;
           qaArea.appendChild(acc);
         });
 
-        // Back card
+        // Back card (blue)
         const backCard = document.createElement("div");
         backCard.className = "policy-card";
         backCard.style.marginTop = "8px";
-        backCard.innerHTML = `<div class="policy-title">← Back to all policies</div><div class="policy-sub">Search or pick another policy</div>`;
-        backCard.addEventListener("click", () =>
-          renderPolicies(searchInput.value)
-        );
+        // Use accessible button inside
+        backCard.innerHTML = `<div><button class="btn-back" id="backToAll">← Back to all policies</button><div class="back-policy-sub">Search or pick another policy</div></div>`;
         qaArea.appendChild(backCard);
 
         // attach accordion listeners
         [...qaArea.querySelectorAll(".acc-head")].forEach((head) => {
           head.addEventListener("click", () => {
-            const body = head.nextElementSibling;
-            const currentlyOpen = body.style.display === "block";
-            // close others
-            [...qaArea.querySelectorAll(".acc-body")].forEach(
-              (b) => (b.style.display = "none")
-            );
-            body.style.display = currentlyOpen ? "none" : "block";
-            // smooth scroll into view
-            setTimeout(
-              () => body.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-              100
-            );
+            toggleAccordion(head);
+          });
+          head.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              toggleAccordion(head);
+            }
           });
         });
 
-        // copy buttons
+        // copy / speak / open buttons
         qaArea.addEventListener("click", (ev) => {
           if (ev.target.classList.contains("btn-copy")) {
             const txt = ev.target.getAttribute("data-txt");
@@ -731,8 +838,45 @@
           } else if (ev.target.classList.contains("btn-open")) {
             const pEl = ev.target.closest(".acc-body").querySelector("p").innerText;
             openModal(pEl);
+          } else if (ev.target.classList.contains("btn-speak")) {
+            const t = ev.target.getAttribute("data-txt");
+            // speak the answer
+            ensureVoiceReady(() => speakText(t, { replace: true, rate: 1 }));
+            // Feedback micro UI
+            ev.target.textContent = "Speaking...";
+            setTimeout(() => (ev.target.textContent = "Speak Answer"), 1200);
           }
         });
+
+        // back to all policies
+        document.getElementById("backToAll").addEventListener("click", () =>
+          renderPolicies(searchInput.value)
+        );
+      }
+
+      function toggleAccordion(head) {
+        const body = head.nextElementSibling;
+        const currentlyOpen = body.style.display === "block";
+        // close others
+        [...qaArea.querySelectorAll(".acc-body")].forEach(
+          (b) => (b.style.display = "none")
+        );
+        [...qaArea.querySelectorAll(".acc-head")].forEach(h => h.setAttribute("aria-expanded","false"));
+        if (!currentlyOpen) {
+          body.style.display = "block";
+          head.setAttribute("aria-expanded","true");
+          // speak answer when opening
+          const answerText = body.querySelector("p").innerText;
+          ensureVoiceReady(() => speakText(answerText, { replace: true, rate: 1 }));
+        } else {
+          body.style.display = "none";
+          head.setAttribute("aria-expanded","false");
+        }
+        // smooth scroll into view
+        setTimeout(
+          () => body.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+          120
+        );
       }
 
       /* search */
@@ -764,6 +908,8 @@
         // ensure correct logo on initial load (light by default)
         logoImg.src = logoLight;
         renderPolicies("");
+        // preload voices
+        ensureVoiceReady(() => {});
       });
 
       /* util: copy to clipboard */
@@ -790,16 +936,25 @@
         const close = document.createElement("button");
         close.textContent = "Close";
         close.style =
-          "float:right;border:0;background:#0034B2;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer";
+          "float:right;border:0;background:var(--accent-1);color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer";
+        const speak = document.createElement("button");
+        speak.textContent = "Speak";
+        speak.style =
+          "float:right;margin-right:8px;border:0;background:#0aa3ff;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer";
         const pre = document.createElement("pre");
         pre.style =
           "white-space:pre-wrap;font-family:inherit;font-size:14px;color:#152033";
         pre.textContent = text;
         card.appendChild(close);
+        card.appendChild(speak);
         card.appendChild(pre);
         modal.appendChild(card);
         document.body.appendChild(modal);
+        // handlers
         close.addEventListener("click", () => modal.remove());
+        speak.addEventListener("click", () => {
+          ensureVoiceReady(() => speakText(text, { replace: true, rate: 1 }));
+        });
         modal.addEventListener("click", (e) => {
           if (e.target === modal) modal.remove();
         });
@@ -851,6 +1006,9 @@
                     }
                   }
                 }, 220);
+                // Speak a short excerpt for the found item
+                const shortExcerpt = `${p.title}. ${p.questions[qid]}. ${String(p.answers[qid]).slice(0,140)}`;
+                ensureVoiceReady(() => speakText(shortExcerpt, { replace: true, rate: 1 }));
                 return;
               }
             }

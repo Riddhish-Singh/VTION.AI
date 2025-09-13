@@ -72,11 +72,6 @@
         border-radius: 6px;
         object-fit: contain;
       }
-      .brand-info {
-        display:flex;
-        flex-direction:column;
-        gap:2px;
-      }
       .chat-header h1 {
         font-size: 15px;
         margin: 0;
@@ -87,18 +82,6 @@
         font-size: 12px;
         opacity: 0.95;
       }
-
-      /* VTION display */
-      .vtion-badge {
-        font-weight: 800;
-        font-size: 18px;
-        letter-spacing: 2px;
-        background: rgba(255,255,255,0.12);
-        padding: 6px 8px;
-        border-radius: 8px;
-        color: #fff;
-      }
-
       .controls {
         display: flex;
         gap: 8px;
@@ -360,16 +343,9 @@
             src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_cuvc1dBUvWuKBARt7zLWJ-QeSPurYZ0_Vg&s"
             alt="VTION Logo"
           />
-          <div class="brand-info">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <div>
-                <h1>VTION Policy Bot</h1>
-                <div class="small">HR · Policy Q&A — instant</div>
-              </div>
-              <!-- VTION display badge -->
-              <div class="vtion-badge" id="vtionBadge">VTION</div>
-            </div>
-            <!-- optional subtitle -->
+          <div>
+            <h1>VTION Policy Bot</h1>
+            <div class="small">HR · Policy Q&A — instant</div>
           </div>
         </div>
 
@@ -572,7 +548,7 @@
           title: "Social Media Usage Policy",
           questions: {
             "1": "What is the purpose of this policy?",
-            "2": "Who does it apply to?`,
+            "2": "Who does it apply to?",
             "3": "What rules exist for posting on behalf of VTION?",
             "4": "What restrictions exist on personal posts?",
             "5": "What laws govern data use on social media?",
@@ -664,7 +640,7 @@
       };
 
       /* ==========================
-         Speech helpers
+         Voice / speech synthesis helper
          ========================== */
       const synth = window.speechSynthesis;
       let voiceEnabled = false;
@@ -673,18 +649,22 @@
       function getPreferredVoice() {
         const voices = synth.getVoices();
         if (!voices || voices.length === 0) return null;
+        // Prefer an English-ish voice; fallback to first available
+        // Try to pick a modern, clear voice if present
         const prefer = voices.find(v =>
           /en|Google UK|Google US|Microsoft David|Samantha|Alloy|Alex/i.test(v.name)
         );
         return prefer || voices[0];
       }
 
+      // Ensure voices are loaded (they load async in some browsers)
       function ensureVoiceReady(callback) {
         let voices = synth.getVoices();
         if (voices.length) {
           defaultVoice = getPreferredVoice();
           callback();
         } else {
+          // wait for event
           synth.onvoiceschanged = () => {
             defaultVoice = getPreferredVoice();
             callback();
@@ -692,31 +672,14 @@
         }
       }
 
-      // The normal speak function respects the user's voice toggle
       function speakText(text, opts = {}) {
         if (!voiceEnabled) return;
         if (!text) return;
         if (!synth) return;
+        // cancel prior speak if options say replace
         if (opts.replace) synth.cancel();
         const ut = new SpeechSynthesisUtterance(text);
         if (defaultVoice) ut.voice = defaultVoice;
-        if (opts.rate) ut.rate = opts.rate;
-        if (opts.pitch) ut.pitch = opts.pitch;
-        synth.speak(ut);
-      }
-
-      // Immediate speak that ignores the voiceEnabled toggle (used for initial "Vision")
-      function speakImmediate(text, opts = {}) {
-        if (!text || !synth) return;
-        if (opts.replace) synth.cancel();
-        const ut = new SpeechSynthesisUtterance(text);
-        // attempt to pick the preferred voice if available
-        const voices = synth.getVoices();
-        const prefer = voices.find(v =>
-          /female|Samantha|Google UK|Google US|Alloy|Alex/i.test(v.name)
-        );
-        if (prefer) ut.voice = prefer;
-        else if (defaultVoice) ut.voice = defaultVoice;
         if (opts.rate) ut.rate = opts.rate;
         if (opts.pitch) ut.pitch = opts.pitch;
         synth.speak(ut);
@@ -734,7 +697,6 @@
       const themeBtn = document.getElementById("themeBtn");
       const logoImg = document.getElementById("vtionLogo");
       const voiceBtn = document.getElementById("voiceBtn");
-      const vtionBadge = document.getElementById("vtionBadge");
 
       let isDark = false;
 
@@ -946,20 +908,8 @@
         // ensure correct logo on initial load (light by default)
         logoImg.src = logoLight;
         renderPolicies("");
-        // preload voices and then speak "Vision" once
-        ensureVoiceReady(() => {
-          // visually emphasize badge when announcing Vision (tiny animation)
-          vtionBadge.animate(
-            [
-              { transform: "scale(1)", opacity: 1 },
-              { transform: "scale(1.12)", opacity: 1 },
-              { transform: "scale(1)", opacity: 1 }
-            ],
-            { duration: 700, easing: "ease-out" }
-          );
-          // speak the single word "Vision" immediately (ignores Voice toggle)
-          speakImmediate("Vision", { replace: true, rate: 1, pitch: 1.05 });
-        });
+        // preload voices
+        ensureVoiceReady(() => {});
       });
 
       /* util: copy to clipboard */

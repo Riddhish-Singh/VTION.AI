@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>VTION — Enhanced Policy Chatbot</title>
+    <link rel="icon" href="data:," />
+    <style>
+      /* ---------- Root / theme vars ---------- */
+      :root {
+        --glass-bg: rgba(255, 255, 255, 0.75);
+        --accent-1: #0034b2;
+        --accent-2: #00cbea;
+        --accent-3: #ff1ad5;
+        --danger: #ff0006;
+        --card-radius: 14px;
+        --shadow: 0 10px 30px rgba(11, 13, 26, 0.12);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+          "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* ---------- Global layout ---------- */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #f3f6fb;
+        /* Center the content */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      .dark-mode {
+        background: linear-gradient(180deg, #05021a 0%, #0b0633 100%);
+        color: #eef2ff;
+      }
+
+      /* Chat container - adjusted for centering */
+      .chat-wrap {
+        width: 420px;
+        max-width: 100%;
+        border-radius: var(--card-radius);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        background: var(--glass-bg);
+        box-shadow: var(--shadow);
+        z-index: 998;
+        backdrop-filter: blur(8px);
+      }
+      .chat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+        color: #fff;
+        gap: 10px;
+      }
+      .brand-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brand-left img {
+        height: 36px;
+        width: auto;
+        border-radius: 6px;
+        object-fit: contain;
+      }
+      .chat-header h1 {
+        font-size: 15px;
+        margin: 0;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+      .chat-header .small {
+        font-size: 12px;
+        opacity: 0.95;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      /* Search area */
+      .search-bar {
+        padding: 12px 16px;
+        background: transparent;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .search-bar input {
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(12, 14, 30, 0.06);
+        outline: none;
+        font-size: 14px;
+        background: #fff;
+      }
+      .search-bar input::placeholder {
+        color: #9aa6bf;
+      }
+      .search-btn {
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 0;
+        background: var(--accent-1);
+        color: #fff;
+        cursor: pointer;
+      }
+
+      /* Body / options */
+      .chat-body {
+        padding: 12px 14px;
+        overflow: auto;
+        max-height: 56vh;
+      }
+      .message-box {
+        background: #eaf9ff;
+        border: 1px solid rgba(0, 203, 234, 0.16);
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        font-size: 14px;
+      }
+      .policy-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .policy-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 12px;
+        border: 1px solid rgba(9, 12, 30, 0.04);
+        cursor: pointer;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+      }
+      .policy-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(11, 13, 26, 0.06);
+      }
+      .policy-title {
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 6px;
+      }
+      .policy-sub {
+        font-size: 13px;
+        color: #5b6b86;
+      }
+
+      /* Questions list / accordion */
+      .qa-area {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .accordion {
+        border-radius: 10px;
+        background: #fbfdff;
+        border: 1px solid rgba(10, 12, 20, 0.03);
+        overflow: hidden;
+      }
+      .acc-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+      .acc-head .q {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .acc-head .meta {
+        font-size: 12px;
+        color: #6f7b93;
+      }
+      .acc-body {
+        padding: 12px 14px;
+        border-top: 1px solid rgba(9, 12, 30, 0.03);
+        display: none;
+        background: #fff;
+      }
+      .acc-body p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.45;
+        color: #243047;
+      }
+      .acc-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+      }
+      .btn-small {
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 0;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .btn-copy {
+        background: linear-gradient(90deg, var(--accent-2), var(--accent-1));
+        color: #fff;
+      }
+      .btn-open {
+        background: rgba(3, 10, 60, 0.06);
+        color: #08102a;
+      }
+
+      /* Back / breadcrumb */
+      .breadcrumb {
+        font-size: 13px;
+        color: #59677f;
+        margin-bottom: 8px;
+      }
+
+      /* Footer small */
+      .chat-footer {
+        padding: 12px 14px;
+        background: transparent;
+        border-top: 1px dashed rgba(9, 12, 30, 0.03);
+        font-size: 12px;
+        color: #6b7b98;
+        text-align: center;
+      }
+
+      /* Dark tweaks */
+      .dark-mode .chat-wrap {
+        background: linear-gradient(
+          180deg,
+          rgba(8, 7, 26, 0.8),
+          rgba(6, 4, 20, 0.95)
+        );
+        color: #e6eefc;
+      }
+      .dark-mode .search-bar input {
+        background: #0f1530;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        color: #dbe9ff;
+      }
+      .dark-mode .policy-card {
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02),
+          rgba(255, 255, 255, 0.01)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .dark-mode .message-box {
+        background: linear-gradient(
+          180deg,
+          rgba(0, 203, 234, 0.06),
+          rgba(0, 203, 234, 0.02)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        color: #e9fbff;
+      }
+      .dark-mode .acc-body p {
+        color: #dbe9ff;
+      }
+
+      /* Responsive */
+      @media (max-width: 520px) {
+        .chat-wrap {
+          width: auto;
+        }
+        .brand-left img {
+          height: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <link
+      rel="preload"
+      href="https://optima.vtion.in/lovable-uploads/d9f230ee-f151-408d-aa3d-5c22c4abfd1a.png"
+      as="image"
+    />
+    <link
+      rel="preload"
+      href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_cuvc1dBUvWuKBARt7zLWJ-QeSPurYZ0_Vg&s"
+      as="image"
+    />
+
+    <div class="chat-wrap" id="chatWrap">
+      <div class="chat-header">
+        <div class="brand-left">
+          <img
+            id="vtionLogo"
+            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_cuvc1dBUvWuKBARt7zLWJ-QeSPurYZ0_Vg&s"
+            alt="VTION Logo"
+          />
+          <div>
+            <h1>VTION Policy Bot</h1>
+            <div class="small">HR · Policy Q&A — instant</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button
+            id="themeBtn"
+            title="Toggle theme"
+            style="
+              background: transparent;
+              border: 0;
+              color: #fff;
+              font-size: 18px;
+              cursor: pointer;
+            "
+          >
+            🌙
+          </button>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <input
+          id="searchInput"
+          placeholder="Search policies or questions (try: 'reimburse', 'harassment', 'IPR')"
+        />
+        <button class="search-btn" id="clearBtn" title="Clear">✖</button>
+      </div>
+
+      <div class="chat-body" id="chatBody">
+        <div class="message-box" id="welcomeMsg">
+          Hi! Pick a policy below or search to jump straight to a question.
+          Answers are copyable.
+        </div>
+
+        <div class="policy-list" id="policyList"></div>
+
+        <div class="qa-area" id="qaArea" style="display: none"></div>
+      </div>
+
+      <div class="chat-footer">
+        Tip: press <strong>Ctrl/Cmd+K</strong> to focus the search — type and
+        hit Enter.
+      </div>
+    </div>
+
+    <script>
+      /* ==========================
+       Data: full 9 policies (same as before)
+       ========================== */
+      const policies = {
+        "2": {
+          title: "Compensation & Benefit Policy – Reimbursements",
+          questions: {
+            "1": "What is the main objective of the Reimbursements Policy?",
+            "2": "Who is covered under this policy?",
+            "3": "Why are reimbursements non-taxable?",
+            "4": "What types of expenses qualify as business/team entertainment reimbursements?",
+            "5": "How are hotel/accommodation expenses reimbursed?",
+            "6": "What documentation is required for business travel reimbursements?",
+            "7": "How should employees claim relocation/transfer reimbursements?",
+            "8": "What form must employees use for non-salary expense claims?",
+            "9": "Can employees be reimbursed without providing bills?",
+          },
+          answers: {
+            "1": "The objective is to establish and administer guidelines for reimbursing employees for non-salary and out-of-pocket business expenses incurred during official duties, as well as certain salary-related components.",
+            "2": "All prospective employees, current permanent employees, and contractual, temporary, and agency staff are covered.",
+            "3": "Because they represent reimbursements for official business expenses made on behalf of VTION and do not add to an employee’s income.",
+            "4": "Only lunch/dinner expenses and team outing expenses related to business purposes qualify.",
+            "5": "On actuals, provided bookings comply with company remit policy and administration approval is obtained.",
+            "6": "Original bills must be submitted. In case of unavailability, employees must provide distance and location details in the reimbursement template.",
+            "7": "By submitting claims using the ‘Non-salary expense reimbursement form’ in accordance with the Relocation/Transfer Policy.",
+            "8": "The official reimbursement template (Google sheet provided by VTION).",
+            "9": "Yes, in cases like business travel, they may provide trip distance and details in the absence of bills.",
+          },
+        },
+
+        "3": {
+          title: "Code of Conduct & Ethics Policy",
+          questions: {
+            "1": "What is the purpose of the Code of Conduct and Ethics?",
+            "2": "Who does the Code apply to?",
+            "3": "What consequences can follow violations?",
+            "4": "What responsibilities do employees have?",
+            "5": "What constitutes a conflict of interest?",
+            "6": "Can employees exploit corporate opportunities?",
+            "7": "What does fair business practice mean?",
+            "8": "How should employees handle conflicting international laws?",
+            "9": "Which anti-bribery laws must employees comply with?",
+            "10": "How does VTION define corruption?",
+          },
+          answers: {
+            "1": "It sets the foundation for ethical operations, ensuring employees conduct themselves with integrity and adhere to laws and regulations wherever VTION operates.",
+            "2": "All employees, including permanent, contractual, temporary, and agency staff.",
+            "3": "Proven violations may lead to termination of employment and legal action.",
+            "4": "They must act with honesty, integrity, transparency, and follow high standards of business ethics and legal rules.",
+            "5": "Using one’s position for personal benefit, such as accepting favors, advantages, or loans for oneself or relatives.",
+            "6": "No, employees are prohibited from using company property, information, or position for personal or third-party business opportunities.",
+            "7": "VTION requires employees to deal fairly with all stakeholders, avoiding manipulation, abuse of information, or misrepresentation.",
+            "8": "They must consult VTION Management to determine the appropriate resolution.",
+            "9": "Indian Penal Code, POCA 1988, Companies Act 2013, SEBI Act, U.S. FCPA, OECD Convention, and UN Anti-Corruption Convention.",
+            "10": "Corruption is misuse of authority or power through illegitimate or unethical means, often linked to bribery.",
+          },
+        },
+
+        "4": {
+          title: "Data Privacy & IPR Policy",
+          questions: {
+            "1": "What is the purpose of the Data Privacy & IPR Policy?",
+            "2": "What information must employees keep private?",
+            "3": "Who owns IP created at VTION?",
+            "4": "What is the IPC’s role?",
+            "5": "How are patents managed?",
+            "6": "How are copyrights handled?",
+            "7": "What rights does VTION gain from employee-submitted copyrighted works?",
+          },
+          answers: {
+            "1": "To prevent unauthorized disclosure of confidential company or employee data, ensuring compliance with data protection laws.",
+            "2": "Information such as patents, IPR, compensation structures, or any other confidential company/employee data.",
+            "3": "Any intellectual property created using VTION’s resources or during employment belongs to VTION.",
+            "4": "The Intellectual Property Committee decides whether inventions should be developed, commercialized, and how they’re protected.",
+            "5": "Patents are filed with management’s knowledge and employee consultation with the IPC.",
+            "6": "All created works belong to VTION, but employees retain ownership of original content, granting VTION a perpetual license.",
+            "7": "VTION may reproduce, distribute, publish, display, perform, or create derivative works.",
+          },
+        },
+
+        "5": {
+          title: "Disciplinary Procedure & Grievance Redressal Policy",
+          questions: {
+            "1": "What is the purpose of this policy?",
+            "2": "What is the difference between misconduct and gross misconduct?",
+            "3": "Give examples of misconduct.",
+            "4": "Give examples of gross misconduct.",
+            "5": "What committee handles inquiries?",
+            "6": "What steps are followed in proceedings?",
+            "7": "What actions can the committee recommend?",
+            "8": "What is the time frame for proceedings?",
+            "9": "How does the whistleblower policy protect employees?",
+          },
+          answers: {
+            "1": "To define unacceptable employee actions and provide a fair redressal framework.",
+            "2": "Misconduct includes minor violations (e.g., verbal abuse, poor timekeeping). Gross misconduct involves severe violations like fraud, harassment, or violence.",
+            "3": "Verbal abuse, persistent lateness, insubordination, disruptive behavior.",
+            "4": "Fraud, falsification of records, theft, sexual harassment, physical assault, drug use at work.",
+            "5": "An Investigation Committee comprising the CEO, a board member, industry personnel, and another senior member.",
+            "6": "Investigation, preparation of a charge sheet, show-cause notice, employee response, hearing, and committee report.",
+            "7": "No action, counseling, verbal/written warning, demotion, termination, or pay deduction.",
+            "8": "All disciplinary proceedings must be completed within 90 days.",
+            "9": "Whistleblowers’ identities remain confidential; they cannot be retaliated against and can request a review of performance reports if victimized.",
+          },
+        },
+
+        "6": {
+          title: "Equal Opportunity Employer Policy",
+          questions: {
+            "1": "What is the objective of the Equal Opportunity Employer policy?",
+            "2": "Who is covered?",
+            "3": "On what basis are hiring decisions made?",
+            "4": "Which traits are protected?",
+            "5": "Who ensures policy implementation?",
+            "6": "How are complaints handled?",
+          },
+          answers: {
+            "1": "To prohibit discrimination or harassment based on personal characteristics such as gender, race, or religion.",
+            "2": "All employees, including prospective, permanent, contractual, and temporary staff.",
+            "3": "On qualifications, ability, and past performance, not personal characteristics.",
+            "4": "Gender, race, color, religion, ethnicity, age, disability, genetics, veteran status, sexual orientation, political beliefs, etc.",
+            "5": "Management ensures implementation, but all employees must uphold equal opportunity principles.",
+            "6": "Employees should report to their manager/CEO, and the company will investigate promptly while maintaining confidentiality.",
+          },
+        },
+
+        "7": {
+          title: "Prevention of Harassment & Bullying Policy",
+          questions: {
+            "1": "What is the objective of this policy?",
+            "2": "How is harassment defined?",
+            "3": "What are examples of harassment?",
+            "4": "What is sexual harassment?",
+            "5": "What is bullying?",
+            "6": "What is not bullying?",
+            "7": "What are consequences of false allegations?",
+          },
+          answers: {
+            "1": "To ensure dignity, respect, and a harassment-free environment inside and outside the workplace.",
+            "2": "Any unwanted conduct that violates dignity or creates a hostile, degrading, or offensive environment—even if the person is not the intended target.",
+            "3": "Physical (touching, grabbing), verbal (offensive jokes, slurs), and visual (lewd materials, obscene gestures).",
+            "4": "Unwanted sexual advances, remarks, or conduct that interferes with work or creates a hostile environment.",
+            "5": "Offensive, malicious, or intimidating behavior that undermines or humiliates others.",
+            "6": "Legitimate performance criticism or reasonable management instructions.",
+            "7": "Proven false allegations are treated as misconduct and subject to disciplinary action.",
+          },
+        },
+
+        "8": {
+          title: "Social Media Usage Policy",
+          questions: {
+            "1": "What is the purpose of this policy?",
+            "2": "Who does it apply to?",
+            "3": "What rules exist for posting on behalf of VTION?",
+            "4": "What restrictions exist on personal posts?",
+            "5": "What laws govern data use on social media?",
+            "6": "How should antagonistic online interactions be handled?",
+            "7": "Can employees mention colleagues/vendors online?",
+          },
+          answers: {
+            "1": "To regulate responsible use of social media by employees, ensuring company reputation and data are protected.",
+            "2": "All prospective, permanent, contractual, temporary, and agency staff.",
+            "3": "Employees must have authorization and comply with policy standards.",
+            "4": "Employees cannot post defamatory, discriminatory, harassing, or confidential information about VTION or its stakeholders.",
+            "5": "Employees must comply with the Data Protection Act 2018 and other local data laws.",
+            "6": "Employees must disengage and seek advice from management.",
+            "7": "Yes, but only with appropriate permissions.",
+          },
+        },
+
+        "9": {
+          title: "Use of Company Assets Policy",
+          questions: {
+            "1": "What is the purpose of this policy?",
+            "2": "What are employee responsibilities for company laptops?",
+            "3": "What actions are prohibited?",
+            "4": "What are the consequences of misuse?",
+            "5": "How are broadband costs reimbursed?",
+            "6": "How are repair costs handled?",
+            "7": "What happens if company property is stolen?",
+          },
+          answers: {
+            "1": "To ensure responsible, official-only use of company assets.",
+            "2": "Employees are responsible for maintenance, protection, and returning them in good condition upon exit.",
+            "3": "Cracking passwords, destroying files, using unlicensed software, or misusing systems.",
+            "4": "Misuse may result in corrective action, termination, or legal consequences including FIR.",
+            "5": "Up to INR 1500/month; any excess is borne by the employee.",
+            "6": "If within warranty/service contract, company reimburses; beyond that, 85% borne by employee and 15% by company.",
+            "7": "Theft may lead to termination and filing of FIR.",
+          },
+        },
+
+        "10": {
+          title: "Performance Management & Learning and Development Policy",
+          questions: {
+            "1": "What is the objective of this policy?",
+            "2": "How is performance evaluated?",
+            "3": "What happens if performance gaps exist?",
+            "4": "What if performance remains inadequate?",
+            "5": "How does VTION support employee development?",
+            "6": "What conditions apply to training reimbursements?",
+            "7": "How are journals and periodicals reimbursed?",
+          },
+          answers: {
+            "1": "To foster excellent performance and encourage continuous learning.",
+            "2": "Each year, employee and reporting manager set goals that define performance benchmarks.",
+            "3": "Manager highlights gaps, and reviews are initiated to realign performance.",
+            "4": "It is considered a breach of policy and may lead to termination.",
+            "5": "Management may invest in niche skill development courses and reimburse related costs.",
+            "6": "The course must add to the employee’s current skills and align with their role.",
+            "7": "Expenses are reimbursed if they contribute to professional development and align with appointment letter provisions.",
+          },
+        },
+"1": {
+  title: "Leave Policy",
+  questions: {
+    "1": "How many total annual leaves does VTION allow?",
+    "2": "How are leaves bifurcated (types and counts)?",
+    "3": "What are rules for sick leave extension?",
+    "4": "What is the leave encashment and carry-forward policy?",
+    "5": "What are Exigency Leaves?",
+    "6": "What is the flexi-working guideline?",
+    "7": "How many restricted off days can an employee take?",
+    "8": "What is the notice period for leave applications?",
+    "9": "Is manager approval required for leave?",
+    "10": "Any special guidance about applying on Zoho?"
+  },
+  answers: {
+    "1": "VTION allows 32 days of annual leave per year for personal time off.",
+    "2": "Leaves are split as: Earned Leaves (18), Casual Leaves (7), and Sick Leaves (7).",
+    "3": "Sick Leave extensions may be granted on production of a doctor's advice and validation from an empanelled/authorized doctor.",
+    "4": "Leave encashment is capped at 10 leaves; only up to 10 leaves can be carried forward to the next year.",
+    "5": "Exigency Leaves are discretion-based leaves granted by management for emergencies (medical/personal); treatment is situational—reach out to HR or HOD.",
+    "6": "VTION mandates a 45-hour work-week guideline, but allows employees to design duty schedules; reduced hours with pro-rated compensation may be available.",
+    "7": "Employees are entitled to 2 Restricted Off days annually.",
+    "8": "Leave applications should be submitted at least 7 days in advance where possible.",
+    "9": "Manager approval is mandatory for all leave requests; inform manager before applying on Zoho—applications without prior manager info may be rejected.",
+    "10": "Discuss with your manager before applying on Zoho; HR may reject applications submitted without prior manager communication."
+  }
+}
+
+      };
+
+      /* ==========================
+       UI bootstrap + logo theme swap
+       ========================== */
+      const chatWrap = document.getElementById("chatWrap");
+      const policyList = document.getElementById("policyList");
+      const qaArea = document.getElementById("qaArea");
+      const searchInput = document.getElementById("searchInput");
+      const clearBtn = document.getElementById("clearBtn");
+      const welcomeMsg = document.getElementById("welcomeMsg");
+      const themeBtn = document.getElementById("themeBtn");
+      const logoImg = document.getElementById("vtionLogo");
+
+      let isDark = false;
+
+      // logo URLs provided by user
+      const logoLight =
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_cuvc1dBUvWuKBARt7zLWJ-QeSPurYZ0_Vg&s";
+      const logoDark =
+        "https://optima.vtion.in/lovable-uploads/d9f230ee-f151-408d-aa3d-5c22c4abfd1a.png";
+
+      /* Theme toggle with logo swap */
+      themeBtn.addEventListener("click", () => {
+        isDark = !isDark;
+        document.body.classList.toggle("dark-mode", isDark);
+        themeBtn.textContent = isDark ? "☀️" : "🌙";
+        // swap logo immediately
+        logoImg.src = isDark ? logoDark : logoLight;
+      });
+
+      /* keyboard shortcut Ctrl/Cmd+K to focus search */
+      document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          searchInput.focus();
+        }
+        if (e.key === "Escape") {
+          searchInput.blur();
+        }
+      });
+
+      /* render initial policy list */
+      function renderPolicies(filter = "") {
+        policyList.innerHTML = "";
+        const keys = Object.keys(policies);
+        const q = filter.trim().toLowerCase();
+        keys.forEach((id) => {
+          const p = policies[id];
+          const combined = (
+            p.title +
+            " " +
+            Object.values(p.questions).join(" ")
+          ).toLowerCase();
+          if (q && !combined.includes(q)) return;
+          const card = document.createElement("div");
+          card.className = "policy-card";
+          card.innerHTML = `<div class="policy-title">${p.title}</div>
+                      <div class="policy-sub">${
+                        Object.keys(p.questions).length
+                      } questions · click to open</div>`;
+          card.addEventListener("click", () => openPolicy(id));
+          policyList.appendChild(card);
+        });
+        if (policyList.childElementCount === 0) {
+          policyList.innerHTML = `<div style="padding:12px;border-radius:10px;background:#fff;border:1px solid rgba(9,12,30,0.03)">No matching policies/questions found.</div>`;
+        }
+        qaArea.style.display = "none";
+        welcomeMsg.style.display = "block";
+      }
+
+      /* open policy -> show questions as accordions */
+      function openPolicy(id, highlight = "") {
+        const p = policies[id];
+        welcomeMsg.style.display = "none";
+        policyList.innerHTML = `<div class="breadcrumb">← <strong>${p.title}</strong></div>`;
+        qaArea.style.display = "flex";
+        qaArea.innerHTML = "";
+        Object.keys(p.questions).forEach((qid) => {
+          const qText = p.questions[qid];
+          const answer = p.answers[qid] || "Answer not available.";
+          const acc = document.createElement("div");
+          acc.className = "accordion";
+          acc.innerHTML = `<div class="acc-head">
+                       <div class="q">${highlightText(qText, highlight)}</div>
+                       <div class="meta">Q.${qid}</div>
+                     </div>
+                     <div class="acc-body"><p>${highlightText(
+                       answer,
+                       highlight
+                     )}</p>
+                       <div class="acc-actions">
+                         <button class="btn-small btn-copy" data-txt="${escapeHtml(
+                           answer
+                         )}">Copy Answer</button>
+                         <button class="btn-small btn-open">Open in modal</button>
+                       </div>
+                     </div>`;
+          qaArea.appendChild(acc);
+        });
+
+        // Back card
+        const backCard = document.createElement("div");
+        backCard.className = "policy-card";
+        backCard.style.marginTop = "8px";
+        backCard.innerHTML = `<div class="policy-title">← Back to all policies</div><div class="policy-sub">Search or pick another policy</div>`;
+        backCard.addEventListener("click", () =>
+          renderPolicies(searchInput.value)
+        );
+        qaArea.appendChild(backCard);
+
+        // attach accordion listeners
+        [...qaArea.querySelectorAll(".acc-head")].forEach((head) => {
+          head.addEventListener("click", () => {
+            const body = head.nextElementSibling;
+            const currentlyOpen = body.style.display === "block";
+            // close others
+            [...qaArea.querySelectorAll(".acc-body")].forEach(
+              (b) => (b.style.display = "none")
+            );
+            body.style.display = currentlyOpen ? "none" : "block";
+            // smooth scroll into view
+            setTimeout(
+              () => body.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+              100
+            );
+          });
+        });
+
+        // copy buttons
+        qaArea.addEventListener("click", (ev) => {
+          if (ev.target.classList.contains("btn-copy")) {
+            const txt = ev.target.getAttribute("data-txt");
+            copyToClipboard(txt);
+            ev.target.textContent = "Copied ✓";
+            setTimeout(() => (ev.target.textContent = "Copy Answer"), 1400);
+          } else if (ev.target.classList.contains("btn-open")) {
+            const pEl = ev.target.closest(".acc-body").querySelector("p").innerText;
+            openModal(pEl);
+          }
+        });
+      }
+
+      /* search */
+      searchInput.addEventListener("input", (e) => {
+        const v = e.target.value;
+        if (!v.trim()) {
+          renderPolicies("");
+          return;
+        }
+        const foundPolicyId = Object.keys(policies).find((id) =>
+          policies[id].title.toLowerCase().includes(v.toLowerCase())
+        );
+        if (foundPolicyId) {
+          openPolicy(foundPolicyId, v);
+        } else {
+          renderPolicies(v);
+        }
+      });
+
+      /* clear button */
+      clearBtn.addEventListener("click", () => {
+        searchInput.value = "";
+        renderPolicies("");
+        searchInput.focus();
+      });
+
+      /* on load */
+      document.addEventListener("DOMContentLoaded", () => {
+        // ensure correct logo on initial load (light by default)
+        logoImg.src = logoLight;
+        renderPolicies("");
+      });
+
+      /* util: copy to clipboard */
+      function copyToClipboard(text) {
+        const t = text.replace(/<[^>]*>?/gm, ""); // strip tags
+        navigator.clipboard?.writeText(t).catch(() => {
+          const ta = document.createElement("textarea");
+          ta.value = t;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+        });
+      }
+
+      /* util: simple modal for long answers */
+      function openModal(text) {
+        const modal = document.createElement("div");
+        modal.style =
+          "position:fixed;inset:0;background:rgba(3,6,20,0.6);display:flex;align-items:center;justify-content:center;z-index:2000";
+        const card = document.createElement("div");
+        card.style =
+          "width:90%;max-width:720px;background:#fff;padding:20px;border-radius:12px;box-shadow:0 20px 60px rgba(3,6,20,0.4)";
+        const close = document.createElement("button");
+        close.textContent = "Close";
+        close.style =
+          "float:right;border:0;background:#0034B2;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer";
+        const pre = document.createElement("pre");
+        pre.style =
+          "white-space:pre-wrap;font-family:inherit;font-size:14px;color:#152033";
+        pre.textContent = text;
+        card.appendChild(close);
+        card.appendChild(pre);
+        modal.appendChild(card);
+        document.body.appendChild(modal);
+        close.addEventListener("click", () => modal.remove());
+        modal.addEventListener("click", (e) => {
+          if (e.target === modal) modal.remove();
+        });
+      }
+
+      /* highlight helper */
+      function highlightText(s, q) {
+        if (!q) return escapeHtml(s);
+        const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return escapeHtml(s).replace(
+          new RegExp(esc, "ig"),
+          (m) =>
+            `<mark style="background:linear-gradient(90deg,var(--accent-2),var(--accent-1));color:#03102a;padding:0 4px;border-radius:4px">${m}</mark>`
+        );
+      }
+
+      /* escape HTML */
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      /* Quick open when user presses Enter in search */
+      searchInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const q = searchInput.value.trim().toLowerCase();
+          if (!q) return renderPolicies("");
+          for (const id of Object.keys(policies)) {
+            const p = policies[id];
+            for (const qid of Object.keys(p.questions)) {
+              if (
+                p.questions[qid].toLowerCase().includes(q) ||
+                (p.answers[qid] || "").toLowerCase().includes(q)
+              ) {
+                openPolicy(id, q);
+                setTimeout(() => {
+                  const heads = qaArea.querySelectorAll(".acc-head");
+                  for (const h of heads) {
+                    if (
+                      h.textContent.toLowerCase().includes(p.questions[qid].toLowerCase())
+                    ) {
+                      h.click();
+                      break;
+                    }
+                  }
+                }, 220);
+                return;
+              }
+            }
+          }
+          renderPolicies(q);
+        }
+      });
+    </script>
+  </body>
+</html>
